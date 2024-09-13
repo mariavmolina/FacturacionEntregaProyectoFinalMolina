@@ -1,4 +1,4 @@
-# Facturación Segunda Entrega
+# Facturación Entrega Final
 
 ## Descripción
 
@@ -23,4 +23,4 @@ Este proyecto es una aplicación de facturación desarrollada con Spring Boot. P
 1. Clona este repositorio en tu máquina local:
 
    ```bash
-   git clone 
+   git clone https://github.com/mariavmolina/FacturacionEntregaProyectoFinalMolina
