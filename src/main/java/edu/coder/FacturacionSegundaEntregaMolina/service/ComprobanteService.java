@@ -1,4 +1,3 @@
-// ComprobanteService.java
 package edu.coder.FacturacionSegundaEntregaMolina.service;
 
 import edu.coder.FacturacionSegundaEntregaMolina.DTO.ComprobanteDTO;
@@ -10,17 +9,14 @@ import edu.coder.FacturacionSegundaEntregaMolina.repository.ClienteRepository;
 import edu.coder.FacturacionSegundaEntregaMolina.repository.ProductoRepository;
 import edu.coder.FacturacionSegundaEntregaMolina.repository.VentaRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.List;
 import java.util.Optional;
 
-/**
- * Servicio para la gestión de comprobantes.
- * Proporciona métodos para crear un comprobante basado en un DTO.
- * Maneja validaciones de cliente y producto, así como la actualización de stock y creación de venta.
- */
 @Service
 public class ComprobanteService {
 
@@ -31,11 +27,12 @@ public class ComprobanteService {
     @Autowired
     private VentaRepository ventaRepository;
 
-    public Object crearComprobante(ComprobanteDTO comprobanteDTO) {
+    public ResponseEntity<ComprobanteResponse> crearComprobante(ComprobanteDTO comprobanteDTO) {
         // Validaciones
         Optional<Cliente> clienteOptional = clienteRepository.findById(comprobanteDTO.getCliente().getClienteid());
         if (!clienteOptional.isPresent()) {
-            throw new RuntimeException("Cliente no existente.");
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(new ComprobanteResponse("Cliente no existente.", "", 0, 0));
         }
 
         Venta venta = new Venta();
@@ -47,12 +44,14 @@ public class ComprobanteService {
         for (ComprobanteDTO.LineaDTO lineaDTO : comprobanteDTO.getLineas()) {
             Optional<Producto> productoOptional = productoRepository.findById(lineaDTO.getProducto().getProductoid());
             if (!productoOptional.isPresent()) {
-                throw new RuntimeException("Producto no existente.");
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(new ComprobanteResponse("Producto no existente.", "", 0, 0));
             }
 
             Producto producto = productoOptional.get();
             if (lineaDTO.getCantidad() > producto.getStock()) {
-                throw new RuntimeException("Cantidad solicitada mayor al stock.");
+                return ResponseEntity.status(HttpStatus.CONFLICT)
+                        .body(new ComprobanteResponse("Cantidad solicitada mayor al stock.", "", 0, 0));
             }
 
             VentaProducto ventaProducto = new VentaProducto();
@@ -60,63 +59,75 @@ public class ComprobanteService {
             ventaProducto.setVenta(venta);
             ventaProducto.setCantidad(lineaDTO.getCantidad());
 
-
             producto.setStock(producto.getStock() - lineaDTO.getCantidad());
             productoRepository.save(producto);
-
 
             total += producto.getPrecio() * lineaDTO.getCantidad();
             cantidadTotal += lineaDTO.getCantidad();
         }
-
 
         RestTemplate restTemplate = new RestTemplate();
         String url = "http://worldclockapi.com/api/json/utc/now";
         String response = restTemplate.getForObject(url, String.class);
         String fecha = response != null ? response : new java.util.Date().toString();
 
-
         ventaRepository.save(venta);
 
-
-        return new ComprobanteResponse(cantidadTotal, fecha, total);
-
+        ComprobanteResponse comprobanteResponse = new ComprobanteResponse(fecha, total, cantidadTotal);
+        return ResponseEntity.ok(comprobanteResponse);
     }
 
-
     public static class ComprobanteResponse {
+        private String mensaje;
         private String fecha;
         private double total;
         private int cantidadTotal;
 
-        public ComprobanteResponse(int cantidadTotal, String fecha, double total) {
-            this.cantidadTotal = cantidadTotal;
+        public ComprobanteResponse(String mensaje, String fecha, double total, int cantidadTotal) {
+            this.mensaje = mensaje;
             this.fecha = fecha;
             this.total = total;
+            this.cantidadTotal = cantidadTotal;
         }
-    }
 
-    public ClienteRepository getClienteRepository() {
-        return clienteRepository;
-    }
+        public ComprobanteResponse(String fecha, double total, int cantidadTotal) {
+            this.mensaje = "";
+            this.fecha = fecha;
+            this.total = total;
+            this.cantidadTotal = cantidadTotal;
+        }
 
-    public void setClienteRepository(ClienteRepository clienteRepository) {
-        this.clienteRepository = clienteRepository;
-    }
+        // Getters y setters
+        public String getMensaje() {
+            return mensaje;
+        }
 
-    public ProductoRepository getProductoRepository() {
-        return productoRepository;
-    }
+        public void setMensaje(String mensaje) {
+            this.mensaje = mensaje;
+        }
 
-    public void setProductoRepository(ProductoRepository productoRepository) {
-        this.productoRepository = productoRepository;
-    }
+        public String getFecha() {
+            return fecha;
+        }
 
-    public VentaRepository getVentaRepository() {
-        return ventaRepository;
-    }
+        public void setFecha(String fecha) {
+            this.fecha = fecha;
+        }
 
-    public void setVentaRepository(VentaRepository ventaRepository) {
-        this.ventaRepository = ventaRepository;
+        public double getTotal() {
+            return total;
+        }
+
+        public void setTotal(double total) {
+            this.total = total;
+        }
+
+        public int getCantidadTotal() {
+            return cantidadTotal;
+        }
+
+        public void setCantidadTotal(int cantidadTotal) {
+            this.cantidadTotal = cantidadTotal;
+        }
     }
 }
